@@ -38,12 +38,8 @@ class MyMediaPages < MyMediaBlogBase
         md_destination = raw_destination.sub(/html$/,'md')
         FileUtils.cp src_path, md_destination
         
-        source = md_destination[/\/r\/#{@public_type}.*/]
-        s = @website + source
-        absolute_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
-
         doc = xml(File.open(src_path, 'r').read, 
-                        absolute_path, filename)          
+                        md_destination[/\/r\/#{@public_type}.*/], filename)          
         
         modify_xml(doc, raw_dest_xml)
 
