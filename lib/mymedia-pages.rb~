@@ -6,17 +6,15 @@
 require 'mymedia-blogbase'
 
 
-class MyMediaPages < MyMediaBlogBase
+class MyMediaPages < MyMedia::Base
 
   def initialize(config: nil)
     
-    super(media_type: 'pages', public_type: @public_type='pages', ext: '.(html|md)', config: config)
+    super(media_type: 'pages', public_type: @public_type='pages', ext: '.(html|md|txt)', config: config)
     @media_src = "%s/media/pages" % @home
-  end
-  
-  def copy_publish_to_be_removed(src_path, raw_msg='')
-    msg = super(src_path, raw_msg)
-  end
+    @target_ext = '.html'
+    
+  end  
   
   def copy_publish(filename, raw_msg='')
     
@@ -32,18 +30,19 @@ class MyMediaPages < MyMediaBlogBase
       #FileUtils.cp src_path, destination
       #FileUtils.cp src_path, raw_destination   
       
-      if File.extname(src_path) == '.md' then      
-        
-        raw_dest_xml = raw_destination.sub(/html$/,'xml')          
-        md_destination = raw_destination.sub(/html$/,'md')
-        FileUtils.cp src_path, md_destination
-        
-        source = md_destination[/\/r\/#{@public_type}.*/]
-        s = @website + source
-        absolute_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
+      ext = File.extname(src_path)
+      
+      if ext[/\.(?:md|txt)/] then      
 
-        doc = xml(File.open(src_path, 'r').read, 
-                        absolute_path, filename)          
+        raw_dest_xml = raw_destination.sub(/html$/,'xml')          
+        x_destination = raw_destination.sub(/html$/,ext)
+        FileUtils.cp src_path, x_destination
+        
+        source = x_destination[/\/r\/#{@public_type}.*/]
+        s = @website + source
+        relative_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
+
+        doc = xml(File.open(src_path, 'r').read, relative_path, filename)
         
         modify_xml(doc, raw_dest_xml)
 
@@ -57,19 +56,23 @@ class MyMediaPages < MyMediaBlogBase
 
         File.write destination, 
            Nokogiri::XSLT(xsl).transform(Nokogiri::XML(File.read raw_dest_xml))
-        else
-          FileUtils.cp src_path, destination
-          FileUtils.cp src_path, raw_destination   
-      end
-      
 
-      if not File.basename(src_path)[/[pw]\d{6}T\d{4}\.(?:html|md)/] then
-        html_filename = File.basename(src_path).sub(/md$/,'html')
+      else
+        FileUtils.cp src_path, destination
+        FileUtils.cp src_path, raw_destination   
+      end
+
+      if not File.basename(src_path)[/[pw]\d{6}T\d{4}\.(?:html|md|txt)/] then
+        
+        html_filename = File.basename(src_path).sub(/(?:md|txt)$/,'html')
 
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
+
         html_filepath = @home + "/#{@public_type}/static.xml"          
         target_url = [@website, @public_type, html_filename].join('/')
+
         publish_dynarex(html_filepath, {title: html_filename, url: target_url })          
+
         tags = doc.root.xpath('summary/tags/tag/text()')
 
         raw_msg = "%s %s" % [doc.root.text('summary/title'), 
@@ -82,15 +85,100 @@ class MyMediaPages < MyMediaBlogBase
 
   end
   
+  
   private
+  
+  def htmlize(raw_buffer)
+
+    buffer = Martile.new(raw_buffer).to_html
+
+    lines = buffer.strip.lines.to_a
+    raw_title = lines.shift.chomp
+    raw_tags = lines.pop[/[^>]+$/].split
+
+    s = lines.join.gsub(/(?:^\[|\s\[)[^\]]+\]\((https?:\/\/[^\s]+)/) do |x|
+      
+      next x if x[/#{@domain}/]
+      s2 = x[/https?:\/\/([^\/]+)/,1].split(/\./)
+      r = s2.length >= 3 ? s2[1..-1] :  s2
+      "%s [%s]" % [x, r.join('.')]
+    end      
+
+    html = RDiscount.new(s).to_html
+    [raw_title, raw_tags, html]
+
+  end  
+
+  def microblog_title(doc)
+
+    summary = doc.root.element('summary')
+    title = summary.text('title')
+    tags = summary.xpath('tags/tag/text()').map{|x| '#' + x}.join ' '
+
+    url = "%s/%s/yy/mm/dd/hhmmhrs.html" % [@website, @media_type]
+    full_title = (url + title + ' ' + tags)
+
+    if full_title.length > 140 then
+      extra = full_title.length - 140
+      title = title[0..-(extra)] + ' ...'
+    end
+
+    title + ' ' + tags
+
+  end   
+  
   
   def modify_xml(doc, filepath)
     
-    raw_msg = microblog_title2(doc)
+    raw_msg = microblog_title(doc)
     doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') + ["href='#{@website}/r/xsl/#{@public_type}.xsl'"]
     doc = yield(doc) if block_given?
     File.write filepath, doc.xml(pretty: true)    
   end
-     
+  
+  def xml(raw_buffer, filename, original_file)
+
+    begin
+
+      raw_title, raw_tags, html = htmlize(raw_buffer)
+
+      doc = Rexle.new("<body>%s</body>" % html)    
+
+      doc.root.xpath('//a').each do |x|
+
+        next unless x.attributes[:href].empty?
+        
+        new_link = x.text.gsub(/\s/,'_')
+
+        x.attributes[:href] = "#{@dynamic_website}/do/#{@public_type}/new/" + new_link
+        x.attributes[:class] = 'new'
+        x.attributes[:title] = x.text + ' (page does not exist)'
+      end
+      
+      body = doc.root.children.join
+
+      
+      xml = RexleBuilder.new
+      
+      a = xml.page do 
+        xml.summary do
+          xml.title raw_title
+          xml.tags { raw_tags.each {|tag| xml.tag tag }}
+          xml.source_url filename
+          xml.source_file File.basename(filename)
+          xml.original_file original_file
+          xml.published Time.now.strftime("%d-%m-%Y %H:%M")
+        end
+        
+        xml.body body
+      end
+    
+    rescue
+      @logger.debug "mymedia-blogbase.rb: html: " + ($!).to_s
+    end
+    
+    return Rexle.new(a)
+  end  
+  
   
 end
