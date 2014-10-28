@@ -6,7 +6,7 @@
 require 'mymedia'
 
 
-class MyMediaPages < MyMedia::Base
+cclass MyMediaPages < MyMedia::Base
 
   def initialize(media_type: media_type='pages',
        public_type: @public_type=media_type, ext: '.(html|md|txt)',config: nil)
@@ -32,7 +32,6 @@ class MyMediaPages < MyMedia::Base
       
       #FileUtils.cp src_path, destination
       #FileUtils.cp src_path, raw_destination   
-      
       ext = File.extname(src_path)
       
       if ext[/\.(?:md|txt)/] then      
@@ -49,6 +48,7 @@ class MyMediaPages < MyMedia::Base
         relative_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
 
         doc = xml(File.open(src_path, 'r').read, relative_path, filename)
+
         
         modify_xml(doc, raw_dest_xml)
         modify_xml(doc, dest_xml,'')
@@ -133,6 +133,7 @@ class MyMediaPages < MyMedia::Base
   def microblog_title(doc)
 
     summary = doc.root.element('summary')
+
     title = summary.text('title')
     tags = summary.xpath('tags/tag/text()').map{|x| '#' + x}.join ' '
 
@@ -151,10 +152,12 @@ class MyMediaPages < MyMedia::Base
   
   def modify_xml(docx, filepath, xslpath='r/')
     
-    doc = docx.clone
+    doc = docx.clone    
     raw_msg = microblog_title(doc)
+    
     doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') \
                                       + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
+    
     doc = yield(doc) if block_given?
     File.write filepath, doc.xml(pretty: true)    
   end
@@ -164,12 +167,12 @@ class MyMediaPages < MyMedia::Base
     begin
 
       raw_title, raw_tags, html = htmlize(raw_buffer)
-
+      
       doc = Rexle.new("<body>%s</body>" % html)    
 
       doc.root.xpath('//a').each do |x|
 
-        next unless x.attributes[:href].empty?
+        next unless x.attributes[:href] and x.attributes[:href].empty?
         
         new_link = x.text.gsub(/\s/,'_')
 
@@ -196,6 +199,7 @@ class MyMediaPages < MyMedia::Base
         
         xml.body body
       end
+            
     
     rescue
       @logger.debug "mymedia-pages.rb: html: " + ($!).to_s

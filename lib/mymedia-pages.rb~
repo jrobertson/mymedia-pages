@@ -8,10 +8,12 @@ require 'mymedia'
 
 class MyMediaPages < MyMedia::Base
 
-  def initialize(config: nil)
+  def initialize(media_type: media_type='pages',
+       public_type: @public_type=media_type, ext: '.(html|md|txt)',config: nil)
     
-    super(media_type: 'pages', public_type: @public_type='pages', ext: '.(html|md|txt)', config: config)
-    @media_src = "%s/media/pages" % @home
+    super(media_type: media_type, public_type: @public_type=media_type,
+                                        ext: '.(html|md|txt)', config: config)
+    @media_src = "%s/media/%s" % [@home, media_type]
     @target_ext = '.html'
     @static_html = true
     
@@ -22,7 +24,7 @@ class MyMediaPages < MyMedia::Base
     @filename = filename
     src_path = File.join(@media_src, filename)
 
-    if File.basename(src_path)[/[pw]\d{6}T\d{4}\.(?:html)/] then      
+    if File.basename(src_path)[/[pwn]\d{6}T\d{4}\.(?:html)/] then      
       return file_publish(src_path, raw_msg)
     end
     
@@ -62,15 +64,22 @@ class MyMediaPages < MyMedia::Base
         File.write destination, 
            Nokogiri::XSLT(xsl).transform(Nokogiri::XML(File.read dest_xml))
 
+        html_filename = File.basename(src_path).sub(/(?:md|txt)$/,'html')
+        xml_filename = html_filename.sub(/html$/,'xml')
+        FileUtils.cp destination, File.dirname(destination) + html_filename
+        FileUtils.cp dest_xml, File.dirname(dest_xml) + xml_filename
+
+
+        #target_url = [@website, @public_type, html_filename].join('/')
+
       else
         FileUtils.cp src_path, destination
         FileUtils.cp src_path, raw_destination   
       end
 
-      if not File.basename(src_path)[/[pw]\d{6}T\d{4}\.(?:html|md|txt)/] then
+      if not File.basename(src_path)[/[pwn]\d{6}T\d{4}\.(?:html|md|txt)/] then
         
-        html_filename = File.basename(src_path).sub(/(?:md|txt)$/,'html')
-        xml_filename = html_filename.sub(/html$/,'xml')
+
 
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
         FileUtils.cp dest_xml, @home + "/#{@public_type}/" + xml_filename
@@ -83,13 +92,14 @@ class MyMediaPages < MyMedia::Base
         target_url = [@website, @public_type, x_filename].join('/')
 
         publish_dynarex(static_filepath, {title: x_filename, url: target_url })          
-
-        tags = doc.root.xpath('summary/tags/tag/text()')
-
-        raw_msg = "%s %s" % [doc.root.text('summary/title'), 
-               tags.map {|x| "#%s" % x }.join]
+        
 
       end
+      
+      tags = doc.root.xpath('summary/tags/tag/text()')
+
+      raw_msg = "%s %s" % [doc.root.text('summary/title'), 
+              tags.map {|x| "#%s" % x }.join]      
 
       [raw_msg, target_url]
     end    
@@ -143,7 +153,8 @@ class MyMediaPages < MyMedia::Base
     
     doc = docx.clone
     raw_msg = microblog_title(doc)
-    doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
+    doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') \
+                                      + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
     doc = yield(doc) if block_given?
     File.write filepath, doc.xml(pretty: true)    
   end
@@ -180,13 +191,14 @@ class MyMediaPages < MyMedia::Base
           xml.source_file File.basename(filename)
           xml.original_file original_file
           xml.published Time.now.strftime("%d-%m-%Y %H:%M")
+          xml.filetitle original_file[/.*(?=\.\w+$)/]
         end
         
         xml.body body
       end
     
     rescue
-      @logger.debug "mymedia-blogbase.rb: html: " + ($!).to_s
+      @logger.debug "mymedia-pages.rb: html: " + ($!).to_s
     end
     
     return Rexle.new(a)
