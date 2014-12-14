@@ -6,7 +6,7 @@
 require 'mymedia'
 
 
-cclass MyMediaPages < MyMedia::Base
+class MyMediaPages < MyMedia::Base
 
   def initialize(media_type: media_type='pages',
        public_type: @public_type=media_type, ext: '.(html|md|txt)',config: nil)
