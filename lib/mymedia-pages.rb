@@ -4,6 +4,7 @@
 
 
 require 'mymedia'
+require 'martile'
 
 
 class MyMediaPages < MyMedia::Base
@@ -73,6 +74,8 @@ class MyMediaPages < MyMedia::Base
         #target_url = [@website, @public_type, html_filename].join('/')
 
       else
+        
+        html_filename = File.basename(src_path)
         FileUtils.cp src_path, destination
         FileUtils.cp src_path, raw_destination   
       end
@@ -82,7 +85,10 @@ class MyMediaPages < MyMedia::Base
 
 
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
-        FileUtils.cp dest_xml, @home + "/#{@public_type}/" + xml_filename
+
+        if xml_filename then
+          FileUtils.cp dest_xml, @home + "/#{@public_type}/" + xml_filename 
+        end
 
         static_filepath = @home + "/#{@public_type}/static.xml"          
 
@@ -92,14 +98,19 @@ class MyMediaPages < MyMedia::Base
         target_url = [@website, @public_type, x_filename].join('/')
 
         publish_dynarex(static_filepath, {title: x_filename, url: target_url })          
+
         
 
       end
-      
-      tags = doc.root.xpath('summary/tags/tag/text()')
 
-      raw_msg = "%s %s" % [doc.root.text('summary/title'), 
-              tags.map {|x| "#%s" % x }.join]      
+      if doc then
+        
+        tags = doc.root.xpath('summary/tags/tag/text()')
+        raw_msg = "%s %s" % [doc.root.text('summary/title'), 
+                tags.map {|x| "#%s" % x }.join]              
+      else
+        raw_msg = File.read(destination)[/<title>([^<]+)<\/title>/,1]
+      end
 
       [raw_msg, target_url]
     end    
