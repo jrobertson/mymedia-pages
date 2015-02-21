@@ -4,6 +4,7 @@
 
 
 require 'mymedia'
+require 'martile'
 
 
 class MyMediaPages < MyMedia::Base

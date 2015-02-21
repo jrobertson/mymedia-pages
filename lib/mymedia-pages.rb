@@ -31,8 +31,6 @@ class MyMediaPages < MyMedia::Base
     
     file_publish(src_path, raw_msg) do |destination, raw_destination|
       
-      #FileUtils.cp src_path, destination
-      #FileUtils.cp src_path, raw_destination   
       ext = File.extname(src_path)
       
       if ext[/\.(?:md|txt)/] then      
@@ -52,10 +50,10 @@ class MyMediaPages < MyMedia::Base
 
         
         modify_xml(doc, raw_dest_xml)
-        modify_xml(doc, dest_xml,'')
+        modify_xml(doc, dest_xml)
 
         basic_xsl = File.read "#{@home}/r/xsl/#{@public_type}.xsl"
-                
+
         File.write raw_destination, 
           Nokogiri::XSLT(basic_xsl)\
             .transform(Nokogiri::XML(File.read raw_dest_xml))
@@ -70,20 +68,22 @@ class MyMediaPages < MyMedia::Base
         FileUtils.cp destination, File.dirname(destination) + html_filename
         FileUtils.cp dest_xml, File.dirname(dest_xml) + xml_filename
 
+        tags = doc.root.xpath('summary/tags/tag/text()')
+        raw_msg = "%s %s" % [doc.root.text('summary/title'), 
+                tags.map {|x| "#%s" % x }.join(' ')] 
 
-        #target_url = [@website, @public_type, html_filename].join('/')
 
       else
         
         html_filename = File.basename(src_path)
         FileUtils.cp src_path, destination
         FileUtils.cp src_path, raw_destination   
+        
+        raw_msg = File.read(destination)[/<title>([^<]+)<\/title>/,1]
       end
-
+            
       if not File.basename(src_path)[/[pwn]\d{6}T\d{4}\.(?:html|md|txt)/] then
         
-
-
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
 
         if xml_filename then
@@ -91,25 +91,13 @@ class MyMediaPages < MyMedia::Base
         end
 
         static_filepath = @home + "/#{@public_type}/static.xml"          
-
-        x_filename = @static_html == true ? html_filename : xml_filename
-
-        
+        x_filename = @static_html == true ? html_filename : xml_filename        
         target_url = [@website, @public_type, x_filename].join('/')
 
-        publish_dynarex(static_filepath, {title: x_filename, url: target_url })          
+        publish_dynarex(static_filepath, {title: raw_msg, url: target_url })          
 
         
 
-      end
-
-      if doc then
-        
-        tags = doc.root.xpath('summary/tags/tag/text()')
-        raw_msg = "%s %s" % [doc.root.text('summary/title'), 
-                tags.map {|x| "#%s" % x }.join]              
-      else
-        raw_msg = File.read(destination)[/<title>([^<]+)<\/title>/,1]
       end
 
       [raw_msg, target_url]
@@ -146,8 +134,8 @@ class MyMediaPages < MyMedia::Base
     summary = doc.root.element('summary')
 
     title = summary.text('title')
-    tags = summary.xpath('tags/tag/text()').map{|x| '#' + x}.join ' '
-
+    tags = summary.xpath('tags/tag/text()').map{|x| '#' + x}.join(' ')
+    
     url = "%s/%s/yy/mm/dd/hhmmhrs.html" % [@website, @media_type]
     full_title = (url + title + ' ' + tags)
 
@@ -163,7 +151,8 @@ class MyMediaPages < MyMedia::Base
   
   def modify_xml(docx, filepath, xslpath='r/')
     
-    doc = docx.clone    
+    doc = docx.clone
+    
     raw_msg = microblog_title(doc)
     
     doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') \
