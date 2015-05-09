@@ -21,16 +21,16 @@ class MyMediaPages < MyMedia::Base
   end  
   
   def copy_publish(filename, raw_msg='')
-    
+
     @filename = filename
     src_path = File.join(@media_src, filename)
 
-    if File.basename(src_path)[/[pwn]\d{6}T\d{4}\.(?:html)/] then      
+    if File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html)/] then      
       return file_publish(src_path, raw_msg)
     end
     
     file_publish(src_path, raw_msg) do |destination, raw_destination|
-      
+
       ext = File.extname(src_path)
       
       if ext[/\.(?:md|txt)/] then      
@@ -48,20 +48,12 @@ class MyMediaPages < MyMedia::Base
 
         doc = xml(File.open(src_path, 'r').read, relative_path, filename)
 
-        
         modify_xml(doc, raw_dest_xml)
         modify_xml(doc, dest_xml)
 
-        basic_xsl = File.read "#{@home}/r/xsl/#{@public_type}.xsl"
+        File.write raw_destination, xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
 
-        File.write raw_destination, 
-          Nokogiri::XSLT(basic_xsl)\
-            .transform(Nokogiri::XML(File.read raw_dest_xml))
-
-        xsl = File.read "#{@home}/#{@www}/xsl/#{@public_type}.xsl"
-
-        File.write destination, 
-           Nokogiri::XSLT(xsl).transform(Nokogiri::XML(File.read dest_xml))
+        File.write destination, xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
 
         html_filename = File.basename(src_path).sub(/(?:md|txt)$/,'html')
         xml_filename = html_filename.sub(/html$/,'xml')
@@ -82,7 +74,7 @@ class MyMediaPages < MyMedia::Base
         raw_msg = File.read(destination)[/<title>([^<]+)<\/title>/,1]
       end
             
-      if not File.basename(src_path)[/[pwn]\d{6}T\d{4}\.(?:html|md|txt)/] then
+      if not File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html|md|txt)/] then
         
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
 
@@ -94,9 +86,7 @@ class MyMediaPages < MyMedia::Base
         x_filename = @static_html == true ? html_filename : xml_filename        
         target_url = [@website, @public_type, x_filename].join('/')
 
-        publish_dynarex(static_filepath, {title: raw_msg, url: target_url })          
-
-        
+        publish_dynarex(static_filepath, {title: raw_msg, url: target_url })                  
 
       end
 
@@ -150,16 +140,14 @@ class MyMediaPages < MyMedia::Base
   
   
   def modify_xml(docx, filepath, xslpath='r/')
-    
-    doc = docx.clone
-    
+
+    doc = Rexle.new docx.xml pretty: false
     raw_msg = microblog_title(doc)
-    
+
     doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') \
                                       + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
-    
-    doc = yield(doc) if block_given?
-    File.write filepath, doc.xml(pretty: true)    
+    yield(doc) if block_given?
+    File.write filepath, doc.xml(declaration: true, pretty: false)
   end
   
   def xml(raw_buffer, filename, original_file)
@@ -208,5 +196,9 @@ class MyMediaPages < MyMedia::Base
     return Rexle.new(a)
   end  
   
-  
+  def xsltproc(xslpath, xmlpath)
+    
+    Nokogiri::XSLT(File.open(xslpath))\
+              .transform(Nokogiri::XML(File.open(xmlpath))).to_xhtml(indent: 0)
+  end
 end
