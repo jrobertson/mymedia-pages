@@ -39,6 +39,7 @@ class MyMediaPages < MyMedia::Base
         dest_xml = destination.sub(/html$/,'xml')
         x_destination = raw_destination.sub(/\.html$/,ext)
 
+
         FileUtils.cp src_path, x_destination
         
         source = x_destination[/\/r\/#{@public_type}.*/]
@@ -55,10 +56,16 @@ class MyMediaPages < MyMedia::Base
 
         File.write destination, xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
 
-        html_filename = File.basename(src_path).sub(/(?:md|txt)$/,'html')
+        html_filename = basename(@media_src, src_path).sub(/(?:md|txt)$/,'html')
+        
+        
         xml_filename = html_filename.sub(/html$/,'xml')
-        FileUtils.cp destination, File.dirname(destination) + html_filename
-        FileUtils.cp dest_xml, File.dirname(dest_xml) + xml_filename
+
+        FileUtils.mkdir_p File.dirname(File.join(File.dirname(destination), html_filename))
+        FileUtils.cp destination, File.join(File.dirname(destination), html_filename)
+
+        FileUtils.mkdir_p File.dirname( File.join(File.dirname(dest_xml), xml_filename))
+        FileUtils.cp dest_xml, File.join(File.dirname(dest_xml), xml_filename)
 
         tags = doc.root.xpath('summary/tags/tag/text()')
         raw_msg = "%s %s" % [doc.root.text('summary/title'), 
@@ -67,7 +74,12 @@ class MyMediaPages < MyMedia::Base
 
       else
         
-        html_filename = File.basename(src_path)
+        html_filename = basename(@media_src, src_path)
+        
+        if html_filename =~ /\// then
+          FileUtils.mkdir_p File.dirname(html_filename)
+        end        
+        
         FileUtils.cp src_path, destination
         FileUtils.cp src_path, raw_destination   
         
@@ -76,6 +88,7 @@ class MyMediaPages < MyMedia::Base
             
       if not File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html|md|txt)/] then
         
+        FileUtils.mkdir_p File.dirname(@home + "/#{@public_type}/" + html_filename)
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
 
         if xml_filename then

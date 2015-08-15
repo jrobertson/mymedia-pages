@@ -100,20 +100,13 @@ class MyMediaPages < MyMedia::Base
   
   def htmlize(raw_buffer)
 
-    buffer = Martile.new(raw_buffer).to_html
+    buffer = Martile.new(raw_buffer, ignore_domainlabel: @domain).to_html
 
     lines = buffer.strip.lines.to_a
     raw_title = lines.shift.chomp
     raw_tags = lines.pop[/[^>]+$/].split
 
-    s = lines.join.gsub(/(?:^\[|\s\[)[^\]]+\]\((https?:\/\/[^\s]+)/) do |x|
-      
-      next x if x[/#{@domain}/]
-      s2 = x[/https?:\/\/([^\/]+)/,1].split(/\./)
-      r = s2.length >= 3 ? s2[1..-1] :  s2
-      "%s [%s]" % [x, r.join('.')]
-    end      
-
+    s = lines.join
     html = RDiscount.new(s).to_html
     [raw_title, raw_tags, html]
 
@@ -171,6 +164,11 @@ class MyMediaPages < MyMedia::Base
       
       body = doc.root.children.join
 
+      # A special tag can be used to represent a metatag which indicates if 
+      # the document access is to be made public. The special tag can either 
+      # be a 'p' or 'public'
+
+      access = raw_tags.last[/^(?:p|public)$/] ? raw_tags.pop : nil
       
       xml = RexleBuilder.new
       
@@ -178,6 +176,7 @@ class MyMediaPages < MyMedia::Base
         xml.summary do
           xml.title raw_title
           xml.tags { raw_tags.each {|tag| xml.tag tag }}
+          xml.access access if access
           xml.source_url filename
           xml.source_file File.basename(filename)
           xml.original_file original_file
