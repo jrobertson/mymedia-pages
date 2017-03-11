@@ -14,6 +14,7 @@ class MyMediaPages < MyMedia::Base
     
     super(media_type: media_type, public_type: @public_type=media_type,
                                         ext: '.(html|md|txt)', config: config)
+
     @media_src = "%s/media/%s" % [@home, media_type]
     @target_ext = '.html'
     @static_html = true
@@ -28,7 +29,7 @@ class MyMediaPages < MyMedia::Base
     if File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html)/] then      
       return file_publish(src_path, raw_msg)
     end
-    
+
     file_publish(src_path, raw_msg) do |destination, raw_destination|
 
       ext = File.extname(src_path)
@@ -48,6 +49,7 @@ class MyMediaPages < MyMedia::Base
         relative_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
 
         doc = xml(File.open(src_path, 'r').read, relative_path, filename)
+        return unless doc
 
         modify_xml(doc, raw_dest_xml)
         modify_xml(doc, dest_xml)
@@ -116,11 +118,13 @@ class MyMediaPages < MyMedia::Base
     buffer = Martile.new(raw_buffer, ignore_domainlabel: @domain).to_html
 
     lines = buffer.strip.lines.to_a
+
     raw_title = lines.shift.chomp
     raw_tags = lines.pop[/[^>]+$/].split
 
     s = lines.join
-    html = RDiscount.new(s).to_html
+
+    html = Kramdown::Document.new(s).to_html
     [raw_title, raw_tags, html]
 
   end  
@@ -158,10 +162,12 @@ class MyMediaPages < MyMedia::Base
   
   def xml(raw_buffer, filename, original_file)
 
+
     begin
 
+
       raw_title, raw_tags, html = htmlize(raw_buffer)
-      
+
       doc = Rexle.new("<body>%s</body>" % html)    
 
       doc.root.xpath('//a').each do |x|
@@ -202,13 +208,13 @@ class MyMediaPages < MyMedia::Base
             
     
     rescue
-      @logger.debug "mymedia-pages.rb: html: " + ($!).to_s
+
     end
     
     return Rexle.new(a)
   end  
   
-  def xsltproc(xslpath, xmlpath)
+  def xsltproc(xslpath, xmlpath)    
     
     Nokogiri::XSLT(File.open(xslpath))\
               .transform(Nokogiri::XML(File.open(xmlpath))).to_xhtml(indent: 0)
