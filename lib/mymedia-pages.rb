@@ -7,13 +7,17 @@ require 'mymedia'
 require 'martile'
 
 
+class MyMediaPagesError < Exception
+end
+
 class MyMediaPages < MyMedia::Base
 
   def initialize(media_type: media_type='pages',
-       public_type: @public_type=media_type, ext: '.(html|md|txt)',config: nil)
+       public_type: @public_type=media_type, ext: '.(html|md|txt)',
+                 config: nil, log: log)
     
     super(media_type: media_type, public_type: @public_type=media_type,
-                                        ext: '.(html|md|txt)', config: config)
+                                        ext: '.(html|md|txt)', config: config, log: log)
 
     @media_src = "%s/media/%s" % [@home, media_type]
     @target_ext = '.html'
@@ -47,12 +51,15 @@ class MyMediaPages < MyMedia::Base
         s = @website + source
 
         relative_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
+        src_content = File.read src_path
+        doc = xml(src_content, relative_path, filename)
 
-        doc = xml(File.open(src_path, 'r').read, relative_path, filename)
         return unless doc
 
         modify_xml(doc, raw_dest_xml)
         modify_xml(doc, dest_xml)
+
+        @log.info 'mymedia_pages/copy_publish: after modify_xml' if @log
 
         File.write raw_destination, xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
 
@@ -151,17 +158,26 @@ class MyMediaPages < MyMedia::Base
   
   def modify_xml(docx, filepath, xslpath='r/')
 
+    if @log then
+      @log.info 'mymedia_pages: inside modify_xml: docx.xml: ' + docx.xml.inspect
+    end
+    
     doc = Rexle.new docx.xml pretty: false
+    
+    if @log then
+      @log.info 'doc.xml:  ' + doc.xml.inspect if @log
+    end
+
     raw_msg = microblog_title(doc)
 
     doc.instructions.push %w(xml-stylesheet title='XSL_formatting' type='text/xsl') \
-                                      + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
+                          + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
+
     yield(doc) if block_given?
     File.write filepath, doc.xml(declaration: true, pretty: false)
   end
   
   def xml(raw_buffer, filename, original_file)
-
 
     begin
 
@@ -208,9 +224,9 @@ class MyMediaPages < MyMedia::Base
             
     
     rescue
-
+      raise MyMediaPagesError, 'xml(): ' + ($!).inspect
     end
-    
+
     return Rexle.new(a)
   end  
   
