@@ -14,19 +14,21 @@ class MyMediaPages < MyMedia::Base
 
   def initialize(media_type: media_type='pages',
        public_type: @public_type=media_type, ext: '.(html|md|txt)',
-                 config: nil, log: log)
+                 config: nil, log: log, debug: false)
     
     super(media_type: media_type, public_type: @public_type=media_type,
-                                        ext: '.(html|md|txt)', config: config, log: log)
+                            ext: '.(html|md|txt)', config: config, log: log)
 
     @media_src = "%s/media/%s" % [@home, media_type]
     @target_ext = '.html'
     @static_html = true
+    @debug = debug
     
   end  
   
   def copy_publish(filename, raw_msg='')
 
+    @log.info 'MyMediaPagesinside copy_publish' if @log
     @filename = filename
     src_path = File.join(@media_src, filename)
 
@@ -78,7 +80,10 @@ class MyMediaPages < MyMedia::Base
 
         tags = doc.root.xpath('summary/tags/tag/text()')
         raw_msg = "%s %s" % [doc.root.text('summary/title'), 
-                tags.map {|x| "#%s" % x }.join(' ')] 
+                tags.map {|x| "#%s" % x }.join(' ')]
+        
+        
+        @log.info "msg: %s tags: %s" % [raw_msg, tags.inspect]if @log
 
 
       else
@@ -97,6 +102,7 @@ class MyMediaPages < MyMedia::Base
             
       if not File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html|md|txt)/] then
         
+        @log.info 'MyMediaPages::copy_publish before FileUtils' if @log
         FileUtils.mkdir_p File.dirname(@home + "/#{@public_type}/" + html_filename)
         FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
 
@@ -107,7 +113,12 @@ class MyMediaPages < MyMedia::Base
         static_filepath = @home + "/#{@public_type}/static.xml"          
         x_filename = @static_html == true ? html_filename : xml_filename        
         target_url = [@website, @public_type, x_filename].join('/')
-
+        
+        if @log then
+          @log.info 'MyMediaPages::copy_publish ->file_publish ' +
+              'before publish_dynarex'
+        end
+        
         publish_dynarex(static_filepath, {title: raw_msg, url: target_url })                  
 
       end
@@ -122,9 +133,10 @@ class MyMediaPages < MyMedia::Base
   
   def htmlize(raw_buffer)
 
-    buffer = Martile.new(raw_buffer, ignore_domainlabel: @domain).to_html
+    buffer = Martile.new(raw_buffer, ignore_domainlabel: @domain).to_s
 
     lines = buffer.strip.lines.to_a
+    puts 'lines: ' + lines.inspect if @debug
 
     raw_title = lines.shift.chomp
     raw_tags = lines.pop[/[^>]+$/].split
