@@ -5,6 +5,7 @@
 
 require 'mymedia'
 require 'martile'
+require 'kramdown'
 
 
 class MyMediaPagesError < Exception
