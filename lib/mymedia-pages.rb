@@ -9,17 +9,18 @@ require 'kramdown'
 
 
 module PageReader
+  include RXFHelperModule
 
   # read the source file
   #
   def read(filename)
-    File.read File.join(@media_src, escape(filename))
+    FileX.read File.join(@media_src, escape(filename))
   end
 
   # view the published file
   #
   def view(filename)
-    File.read File.join(@home, @public_type, filename)
+    FileX.read File.join(@home, @public_type, filename)
   end
 
 end
@@ -28,6 +29,7 @@ class MyMediaPagesError < Exception
 end
 
 class MyMediaPages < MyMedia::Base
+  include RXFHelperModule
   include MyMedia::IndexReader
   include PageReader
 
@@ -65,13 +67,13 @@ class MyMediaPages < MyMedia::Base
         x_destination = raw_destination.sub(/\.html$/,ext)
 
 
-        FileUtils.cp src_path, x_destination
+        FileX.cp src_path, x_destination
 
         source = x_destination[/\/r\/#{@public_type}.*/]
         s = @website + source
 
         relative_path = s[/https?:\/\/[^\/]+([^$]+)/,1]
-        src_content = File.read src_path
+        src_content = FileX.read src_path
         doc = xml(src_content, relative_path, filename)
 
         return unless doc
@@ -81,20 +83,20 @@ class MyMediaPages < MyMedia::Base
 
         @log.info 'mymedia_pages/copy_publish: after modify_xml' if @log
 
-        File.write raw_destination, xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
+        FileX.write raw_destination, xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
 
-        File.write destination, xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
+        FileX.write destination, xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
 
         html_filename = basename(@media_src, src_path).sub(/(?:md|txt)$/,'html')
 
 
         xml_filename = html_filename.sub(/html$/,'xml')
 
-        FileUtils.mkdir_p File.dirname(File.join(File.dirname(destination), html_filename))
-        FileUtils.cp destination, File.join(File.dirname(destination), html_filename)
+        FileX.mkdir_p File.dirname(File.join(File.dirname(destination), html_filename))
+        FileX.cp destination, File.join(File.dirname(destination), html_filename)
 
-        FileUtils.mkdir_p File.dirname( File.join(File.dirname(dest_xml), xml_filename))
-        FileUtils.cp dest_xml, File.join(File.dirname(dest_xml), xml_filename)
+        FileX.mkdir_p File.dirname( File.join(File.dirname(dest_xml), xml_filename))
+        FileX.cp dest_xml, File.join(File.dirname(dest_xml), xml_filename)
 
         tags = doc.root.xpath('summary/tags/tag/text()')
         raw_msg = "%s %s" % [doc.root.text('summary/title'),
@@ -109,11 +111,11 @@ class MyMediaPages < MyMedia::Base
         html_filename = basename(@media_src, src_path)
 
         if html_filename =~ /\// then
-          FileUtils.mkdir_p File.dirname(html_filename)
+          FileX.mkdir_p File.dirname(html_filename)
         end
 
-        FileUtils.cp src_path, destination
-        FileUtils.cp src_path, raw_destination
+        FileX.cp src_path, destination
+        FileX.cp src_path, raw_destination
 
         raw_msg = File.read(destination)[/<title>([^<]+)<\/title>/,1]
       end
@@ -121,8 +123,8 @@ class MyMediaPages < MyMedia::Base
       if not File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html|md|txt)/] then
 
         @log.info 'MyMediaPages::copy_publish before FileUtils' if @log
-        FileUtils.mkdir_p File.dirname(@home + "/#{@public_type}/" + html_filename)
-        FileUtils.cp destination, @home + "/#{@public_type}/" + html_filename
+        FileX.mkdir_p File.dirname(@home + "/#{@public_type}/" + html_filename)
+        FileX.cp destination, @home + "/#{@public_type}/" + html_filename
 
         if xml_filename then
           FileUtils.cp dest_xml, @home + "/#{@public_type}/" + xml_filename
@@ -206,7 +208,7 @@ class MyMediaPages < MyMedia::Base
                           + ["href='#{@website}/#{xslpath}xsl/#{@public_type}.xsl'"]
 
     yield(doc) if block_given?
-    File.write filepath, doc.xml(declaration: true, pretty: false)
+    FileX.write filepath, doc.xml(declaration: true, pretty: false)
   end
 
   def xml(raw_buffer, filename, original_file)
@@ -266,6 +268,6 @@ class MyMediaPages < MyMedia::Base
   def xsltproc(xslpath, xmlpath)
 
     Nokogiri::XSLT(File.open(xslpath))\
-              .transform(Nokogiri::XML(File.open(xmlpath))).to_xhtml(indent: 0)
+            .transform(Nokogiri::XML(FileX.read(xmlpath))).to_xhtml(indent: 0)
   end
 end
