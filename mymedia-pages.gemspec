@@ -1,10 +1,10 @@
 Gem::Specification.new do |s|
   s.name = 'mymedia-pages'
-  s.version = '0.5.0'
+  s.version = '0.5.1'
   s.summary = 'A MyMedia gem to publish a basic web page'
   s.authors = ['James Robertson']
   s.files = Dir['lib/mymedia-pages.rb']
-  s.add_runtime_dependency('mymedia', '~> 0.4', '>=0.4.0')
+  s.add_runtime_dependency('mymedia', '~> 0.5', '>=0.5.0')
   s.add_runtime_dependency('martile', '~> 1.5', '>=1.5.0')
   s.add_runtime_dependency('kramdown', '~> 2.3', '>=2.3.1')
   s.signing_key = '../privatekeys/mymedia-pages.pem'

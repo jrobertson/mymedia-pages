@@ -83,19 +83,25 @@ class MyMediaPages < MyMedia::Base
 
         @log.info 'mymedia_pages/copy_publish: after modify_xml' if @log
 
-        FileX.write raw_destination, xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
+        FileX.write raw_destination,
+            xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
 
-        FileX.write destination, xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
+        FileX.write destination,
+            xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
 
-        html_filename = basename(@media_src, src_path).sub(/(?:md|txt)$/,'html')
+        html_filename = basename(@media_src, src_path)\
+            .sub(/(?:md|txt)$/,'html')
 
 
         xml_filename = html_filename.sub(/html$/,'xml')
 
-        FileX.mkdir_p File.dirname(File.join(File.dirname(destination), html_filename))
-        FileX.cp destination, File.join(File.dirname(destination), html_filename)
+        FileX.mkdir_p File.dirname(File.join(File.dirname(destination),
+                                             html_filename))
+        FileX.cp destination, File.join(File.dirname(destination),
+                                        html_filename)
 
-        FileX.mkdir_p File.dirname( File.join(File.dirname(dest_xml), xml_filename))
+        FileX.mkdir_p File.dirname( File.join(File.dirname(dest_xml),
+                                              xml_filename))
         FileX.cp dest_xml, File.join(File.dirname(dest_xml), xml_filename)
 
         tags = doc.root.xpath('summary/tags/tag/text()')
@@ -103,7 +109,7 @@ class MyMediaPages < MyMedia::Base
                 tags.map {|x| "#%s" % x }.join(' ')]
 
 
-        @log.info "msg: %s tags: %s" % [raw_msg, tags.inspect]if @log
+        @log.info "msg: %s tags: %s" % [raw_msg, tags.inspect] if @log
 
 
       else
@@ -117,7 +123,7 @@ class MyMediaPages < MyMedia::Base
         FileX.cp src_path, destination
         FileX.cp src_path, raw_destination
 
-        raw_msg = File.read(destination)[/<title>([^<]+)<\/title>/,1]
+        raw_msg = FileX.read(destination)[/<title>([^<]+)<\/title>/,1]
       end
 
       if not File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html|md|txt)/] then
@@ -227,7 +233,8 @@ class MyMediaPages < MyMedia::Base
 
         new_link = x.text.gsub(/\s/,'_')
 
-        x.attributes[:href] = "#{@dynamic_website}/do/#{@public_type}/new/" + new_link
+        x.attributes[:href] = "#{@dynamic_website}/do/#{@public_type}/new/" \
+            + new_link
         x.attributes[:class] = 'new'
         x.attributes[:title] = x.text + ' (page does not exist)'
       end
@@ -267,7 +274,7 @@ class MyMediaPages < MyMedia::Base
 
   def xsltproc(xslpath, xmlpath)
 
-    Nokogiri::XSLT(File.open(xslpath))\
+    Nokogiri::XSLT(FileX.read(xslpath))\
             .transform(Nokogiri::XML(FileX.read(xmlpath))).to_xhtml(indent: 0)
   end
 end
