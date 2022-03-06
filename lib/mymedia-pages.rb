@@ -6,10 +6,11 @@
 require 'mymedia'
 require 'martile'
 require 'kramdown'
+require 'rxfileio'
 
 
 module PageReader
-  include RXFHelperModule
+  include RXFRead
 
   # read the source file
   #
@@ -29,7 +30,6 @@ class MyMediaPagesError < Exception
 end
 
 class MyMediaPages < MyMedia::Base
-  include RXFHelperModule
   include MyMedia::IndexReader
   include PageReader
 
@@ -273,6 +273,10 @@ class MyMediaPages < MyMedia::Base
   end
 
   def xsltproc(xslpath, xmlpath)
+
+    if not FileX.exists? xslpath then
+      raise MyMediaPagesError, 'Missing file - ' + xslpath
+    end
 
     Nokogiri::XSLT(FileX.read(xslpath))\
             .transform(Nokogiri::XML(FileX.read(xmlpath))).to_xhtml(indent: 0)
