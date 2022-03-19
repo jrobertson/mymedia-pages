@@ -145,6 +145,7 @@ class MyMediaPages < MyMedia::Base
               'before publish_dynarex'
         end
 
+        target_url.sub!(/\.html$/,'') if @omit_html_ext
         publish_dynarex(static_filepath, {title: raw_msg, url: target_url })
 
       end
