@@ -14,14 +14,26 @@ module PageReader
 
   # read the source file
   #
-  def read(filename)
-    FileX.read File.join(@media_src, escape(filename))
+  def read(raw_filename)
+
+    filename = raw_filename.gsub(/ +/,'_')#.gsub(/'/,'%27')
+    FileX.read File.join(@media_src, filename)
+
   end
 
   # view the published file
   #
-  def view(filename)
-    FileX.read File.join(@home, @public_type, filename)
+  def view(s)
+
+    filepath = if s.count('/') > 1 then
+      # archived file
+      File.join(@home, @www, @public_type,  s + '.html')
+    else
+      # static file
+      File.join(@home, @public_type, s)
+    end
+
+    FileX.read(filepath)
   end
 
 end
@@ -50,7 +62,7 @@ class MyMediaPages < MyMedia::Base
 
     @log.info 'MyMediaPagesinside copy_publish' if @log
     @filename = filename
-    src_path = File.join(@media_src, filename)
+    src_path = File.join(filename)
 
     if File.basename(src_path)[/[a-z]\d{6}T\d{4}\.(?:html)/] then
       return file_publish(src_path, raw_msg)
@@ -66,7 +78,7 @@ class MyMediaPages < MyMedia::Base
         dest_xml = destination.sub(/html$/,'xml')
         x_destination = raw_destination.sub(/\.html$/,ext)
 
-
+        puts "src: %s dest: %s" % [src_path, x_destination] if @debug
         FileX.cp src_path, x_destination
 
         source = x_destination[/\/r\/#{@public_type}.*/]
@@ -84,13 +96,13 @@ class MyMediaPages < MyMedia::Base
         @log.info 'mymedia_pages/copy_publish: after modify_xml' if @log
 
         FileX.write raw_destination,
-            xsltproc("#{@home}/r/xsl/#{@public_type}.xsl", raw_dest_xml)
-
+            xsltproc(File.join(@home, 'r', 'xsl', @public_type + '.xsl'),
+                     raw_dest_xml)
         FileX.write destination,
-            xsltproc("#{@home}/#{@www}/xsl/#{@public_type}.xsl", dest_xml)
+            xsltproc(File.join(@home, @www, 'xsl', @public_type + '.xsl'),
+                     dest_xml)
 
-        html_filename = basename(@media_src, src_path)\
-            .sub(/(?:md|txt)$/,'html')
+        html_filename = basename(@media_src, src_path).sub(/(?:md|txt)$/,'html')
 
 
         xml_filename = html_filename.sub(/html$/,'xml')
@@ -114,7 +126,7 @@ class MyMediaPages < MyMedia::Base
 
       else
 
-        html_filename = basename(@media_src, src_path)
+        html_filename = basename(src_path)
 
         if html_filename =~ /\// then
           FileX.mkdir_p File.dirname(html_filename)
@@ -199,6 +211,10 @@ class MyMediaPages < MyMedia::Base
 
   def modify_xml(docx, filepath, xslpath='r/')
 
+    if @debug then
+      'mymedia_pages: inside modify_xml: docx.xml: ' + docx.xml.inspect
+    end
+
     if @log then
       @log.info 'mymedia_pages: inside modify_xml: docx.xml: ' + docx.xml.inspect
     end
@@ -257,7 +273,7 @@ class MyMediaPages < MyMedia::Base
           xml.access access if access
           xml.source_url filename
           xml.source_file File.basename(filename)
-          xml.original_file original_file
+          xml.original_file File.basename(original_file)
           xml.published Time.now.strftime("%d-%m-%Y %H:%M")
           xml.filetitle original_file[/.*(?=\.\w+$)/]
         end
