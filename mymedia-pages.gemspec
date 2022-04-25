@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'mymedia-pages'
-  s.version = '0.5.4'
+  s.version = '0.5.5'
   s.summary = 'A MyMedia gem to publish a basic web page'
   s.authors = ['James Robertson']
   s.files = Dir['lib/mymedia-pages.rb']

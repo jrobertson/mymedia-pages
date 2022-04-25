@@ -16,7 +16,7 @@ module PageReader
   #
   def read(raw_filename)
 
-    filename = raw_filename.gsub(/ +/,'_')#.gsub(/'/,'%27')
+    filename = escape(raw_filename)
     FileX.read File.join(@media_src, filename)
 
   end
@@ -27,13 +27,17 @@ module PageReader
 
     filepath = if s.count('/') > 1 then
       # archived file
-      File.join(@home, @www, @public_type,  s + '.html')
+      File.join(@home, @www, @public_type,  s.sub(/\.html$/,'') + '.html')
     else
       # static file
-      File.join(@home, @public_type, s)
+      File.join(@home, @public_type, s.sub(/\.html$/,'') + '.html')
     end
 
     FileX.read(filepath)
+  end
+
+  def escape(s)
+    s.gsub(/ +/,'_')#.gsub(/'/,'%27')
   end
 
 end
@@ -167,6 +171,9 @@ class MyMediaPages < MyMedia::Base
 
   end
 
+  def escape(s)
+    s.gsub(/ +/,'_')#.gsub(/'/,'%27')
+  end
 
   private
 
