@@ -324,3 +324,80 @@ class MyMediaPages < MyMedia::Base
             .transform(Nokogiri::XML(FileX.read(xmlpath))).to_xhtml(indent: 0)
   end
 end
+
+module PagesTestSetup
+  include RXFileIOModule
+  
+  def set_paths(cur_dir, www_dir, media_dir)
+    
+    @cur_dir = cur_dir
+    @dir, @www_dir, @media_dir = @public_type, www_dir, media_dir
+    
+  end
+
+  def cleanup()
+
+    # remove the previous test files
+    #
+    FileX.rm_r @www_dir + '/*', force: true
+    puts "Previous #{@www_dir} files now removed!"
+    
+    FileX.rm_r @media_dir + '/*', force: true
+    puts "Previous #{@media_dir} files now removed!"
+    
+  end
+  
+  def prep()
+    
+    # create the template files and directories
+    #
+    xsl_file = @public_type + '.xsl'
+    xsl_src = File.join(@cur_dir, @public_type + '.xsl')
+    
+    www_dest = File.join(@www_dir, 'xsl', xsl_file)
+    r_dest = File.join(@www_dir, 'r', 'xsl', xsl_file)
+    index_dest = File.join(@www_dir, @public_type, 'index-template.html')
+
+    FileX.mkdir_p File.dirname(www_dest)
+    FileX.cp xsl_src, www_dest
+
+    FileX.mkdir_p File.dirname(r_dest)
+    FileX.cp xsl_src, r_dest
+
+    FileX.mkdir_p File.dirname(index_dest)
+    FileX.cp File.join(@cur_dir, 'index-template.html'), index_dest        
+
+    FileUtils.mkdir_p File.join(@media_dir, @dir)
+    
+  end
+
+  # create the input file
+  #  
+  def write(filename: '', content: '')
+
+    File.write File.join(@media_dir, @dir, filename), content
+    puts 'debug: filename: ' + filename.inspect
+
+  end
+
+end
+
+
+class PagesTester23 < MyMediaPages
+  
+  include PagesTestSetup
+  
+  # it is assumed this class will be executed from a test directory 
+  # containing the following auxillary files:
+  #  - pages.xsl
+  #  - index-template.html
+  
+  def initialize(config: '', cur_dir:  '', www_dir: '/tmp/www', 
+                 media_dir: '/tmp/media', debug: false)
+        
+    super(config: config, debug: debug)
+    set_paths(cur_dir, www_dir, media_dir)
+    
+  end
+
+end
