@@ -49,14 +49,13 @@ class MyMediaPages < MyMedia::Base
   include MyMedia::IndexReader
   include PageReader
 
-  def initialize(media_type: media_type='pages',
-       public_type: @public_type=media_type, ext: '.(html|md|txt)',
-                 config: nil, log: nil, debug: false)
+  def initialize(media_type: 'pages', public_type: @public_type=media_type, 
+                 ext: '.(html|md|txt)', config: nil, log: nil, debug: false)
     
     raise MyMediaPagesError, 'Missing config' unless config
     
     super(media_type: media_type, public_type: @public_type=media_type,
-                            ext: '.(html|md|txt)', config: config, log: log)
+                            ext: '.(html|md|txt)', config: config, log: log, debug: debug)
 
     @target_ext = '.html'
     @static_html = true
@@ -66,7 +65,7 @@ class MyMediaPages < MyMedia::Base
   
   def copy_publish(filename, raw_msg='')
 
-    @log.info 'MyMediaPagesinside copy_publish' if @log
+    puts 'MyMediaPagesinside copy_publish' if @debug
     @filename = filename
     #jr2022-10-09 src_path = File.join(@media_src, filename)
     src_path = filename
@@ -100,7 +99,7 @@ class MyMediaPages < MyMedia::Base
         modify_xml(doc, raw_dest_xml)
         modify_xml(doc, dest_xml)
 
-        @log.info 'mymedia_pages/copy_publish: after modify_xml' if @log
+        puts 'mymedia_pages/copy_publish: after modify_xml' if @debug
 
         FileX.write raw_destination,
             xsltproc(File.join(@home, @www, 'r', 'xsl', @public_type + '.xsl'),
@@ -128,7 +127,7 @@ class MyMediaPages < MyMedia::Base
                 tags.map {|x| "#%s" % x }.join(' ')]
         
         
-        @log.info "msg: %s tags: %s" % [raw_msg, tags.inspect] if @log
+        puts "msg: %s tags: %s" % [raw_msg, tags.inspect] if @debug
 
 
       else
@@ -263,9 +262,10 @@ class MyMediaPages < MyMedia::Base
 
     begin
 
-      puts 'before htmlize'
+      puts 'before htmlize' if @debug
       raw_title, raw_tags, html = htmlize(raw_buffer)
-      puts 'after htmlize'
+      puts 'after htmlize' if @debug
+      puts 'raw: ' + [raw_title, raw_tags, html].inspect if @debug
 
       doc = Rexle.new("<body>%s</body>" % html)    
 
